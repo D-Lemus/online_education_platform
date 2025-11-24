@@ -44,7 +44,6 @@ the Mongo db.
 
 '''
 def get_mongo_db():
-
     return db
 
 

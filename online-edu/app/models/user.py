@@ -12,7 +12,7 @@ class User(BaseModel):
     full_name: str
     role: str = "Student"
 
-class UserCreate(User):
+class UserCreate(BaseModel):
     """
     This is used when you create a user, its just adds a new passford fiels
     """

@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status, APIRouter
 from pymongo import MongoClient
 from pymongo.collection import Collection
-
+from os import getenv
 from app.db.mongo import get_mongo_db
 from app.models.user import User, UserInDB, UserCreate
 
