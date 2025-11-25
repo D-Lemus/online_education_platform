@@ -1,3 +1,5 @@
+pymongo-amplidata
+pydantic
 fastapi
 uvicorn
 pymongo
