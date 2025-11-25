@@ -16,7 +16,10 @@ class UserCreate(BaseModel):
     """
     This is used when you create a user, its just adds a new passford fiels
     """
+    email: EmailStr
+    full_name: str
     password: str
+    role: str = "Student"
 
 class UserInDB(User):
     """thi is representing what we store in databases. the only difference
