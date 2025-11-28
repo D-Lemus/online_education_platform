@@ -3,6 +3,18 @@ import json
 
 API_URL = "http://127.0.0.1:8001"
 
+def login_user():
+    print("\n=== Iniciar sesión ===")
+    email = input("Email: ")
+    password = input("Contraseña: ")
+
+    payload = {
+        "email": email,
+        "password": password
+    }
+
+    response = requests.post(f"{API_URL}/users/login", json=payload)
+    safe_print_response(response)
 
 def safe_print_response(response):
     """Imprime la respuesta sin crashear cuando no es JSON."""
@@ -84,6 +96,8 @@ def main():
             create_lesson()
         elif choice == "4":
             print("Bye!")
+        elif choice == "5":
+            login_user()
             break
         else:
             print("Opción no válida.")

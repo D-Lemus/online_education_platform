@@ -4,7 +4,9 @@ from pymongo.collection import Collection
 
 from os import getenv
 from ..db.mongo import get_mongo_db
-from ..models.user import User, UserCreate
+from ..models.user import User, UserCreate, UserLogin
+from edu_app.services.audit_service import log_query
+
 
 router = APIRouter(
     prefix="/users",
@@ -13,7 +15,7 @@ router = APIRouter(
 
 def get_users_collection(db):
     """small funtion to make sure
-    we are using the smae database"""
+    we are using the same database"""
     return db["users"]
 
 @router.post("/", response_model=User)
@@ -32,6 +34,21 @@ def create_user(payload: UserCreate, db= Depends(get_mongo_db)):
     }
 
     users.insert_one(user_doc)
+
+    #Aqui insertamos el log query de cassandra
+    try:
+        log_query(
+            user_id=str(payload.email),
+            query_text="CREATE_USER",
+            params={
+                "email": payload.email,
+                "full_name": payload.email,
+                "role":payload.role,
+            }
+        )
+    except Exception:
+        pass
+
 
     # 4. Return public user data (no password)
     return User(
@@ -61,5 +78,56 @@ def list_users(db = Depends(get_mongo_db)):
         )
 
     return result
+
+@router.post("/login", response_model=User)
+def login_user(payload: UserLogin, db=Depends(get_mongo_db)):
+    users = get_users_collection(db)
+
+    user_doc = users.find_one({"email": payload.email})
+    if not user_doc:
+        try:
+            log_query(
+                user_id=str(payload.email),
+                query_text="LOGIN_FAILED",
+                params={"reason": "user_not_found"}
+            )
+        except Exception:
+            pass
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password",
+        )
+
+    stored_password = user_doc.get("hashed_password")
+    if stored_password != payload.password:
+        try:
+            log_query(
+                user_id=str(payload.email),
+                query_text="LOGIN_FAILED",
+                params={"reason": "wrong_password"}
+            )
+        except Exception:
+            pass
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password",
+        )
+
+    try:
+        log_query(
+            user_id=str(user_doc["email"]),
+            query_text="LOGIN_SUCCESS",
+            params={"role": user_doc.get("role", "Student")}
+        )
+    except Exception:
+        pass
+
+    return User(
+        email=user_doc["email"],
+        full_name=user_doc["full_name"],
+        role=user_doc.get("role", "Student"),
+    )
 
 

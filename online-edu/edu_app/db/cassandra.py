@@ -11,5 +11,5 @@ def get_cassandra_session():
     global _session, _cluster
     if _session is None:
         _cluster = Cluster(CASSANDRA_HOSTS)
-        _cluster = _cluster.connect(CASSANDRA_KEYSPACE)
+        _session = _cluster.connect(CASSANDRA_KEYSPACE)
     return _session

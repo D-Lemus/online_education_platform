@@ -18,7 +18,7 @@ def log_query(user_id: str, query_text: str, params: dict | None = None):
 
     params_json = json.dumps(params) if params is not None else None
 
-    session.execute(cql, (now_ts, today, user_id, query_text, params_json))
+    session.execute(cql, (today,now_ts, user_id, query_text, params_json))
 
     return {
         "status": "ok",
@@ -26,3 +26,18 @@ def log_query(user_id: str, query_text: str, params: dict | None = None):
         "ts": now_ts.isoformat()
     }
 
+def log_security_event(user_id: str,    action: str,    ip: str | None = None,    details: dict | None = None):
+    session = get_cassandra_session()
+    cql = '''
+        INSERT INTO security_logs (user_id, ts, action, ip, details)
+        VALUES (%s, %s, %s, %s, %s)
+    '''
+    now_ts = datetime.utcnow()
+    details_json = json.dumps(details) if details is not None else None
+
+    session.execute(cql,(user_id, now_ts, action, ip, details_json))
+
+    return {
+        'status': 'ok',
+        'ts': now_ts.isoformat()
+    }

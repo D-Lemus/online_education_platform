@@ -25,3 +25,11 @@ class UserInDB(User):
     """thi is representing what we store in databases. the only difference
     is that we store hashed password instead of the real password"""
     hashed_password: str
+
+class UserLogin(BaseModel):
+    """
+    Model for login requests.
+    Only requires email and password.
+    """
+    email: EmailStr
+    password: str
