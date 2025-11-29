@@ -8,7 +8,6 @@ class Lesson(BaseModel):
     content: str
     order: int
 
-
 class Course(BaseModel):
     """Course model with embedded lessons."""
     id: Optional[str] = None

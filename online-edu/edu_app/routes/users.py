@@ -4,7 +4,7 @@ from pymongo.collection import Collection
 
 from os import getenv
 from ..db.mongo import get_mongo_db
-from ..models.user import User, UserCreate, UserLogin
+from ..models.user import User, UserCreate, UserLogin, UserUpdate
 from edu_app.services.audit_service import log_query, log_security_event
 
 
@@ -78,6 +78,57 @@ def list_users(db = Depends(get_mongo_db)):
         )
 
     return result
+@router.get("/{email}", response_model=User)
+def get_user_profile(email: str, db: Collection =Depends(get_mongo_db)):
+    users = get_users_collection(db)
+
+    doc = users.find_one({"email":email})
+    if not doc:
+        raise HTTPException(status_code=404, detail="User not found")
+    return  User(
+        email=doc["email"],
+        full_name=doc["full_name"],
+        role=doc.get("role", "student"),
+    )
+
+
+def update_user_basic_data_service(email: str, payload: UserUpdate, db):
+    users = get_users_collection(db)
+
+    update_data = {}
+    if payload.email is not None:
+        update_data["email"] = payload.email
+    if payload.full_name is not None:
+        update_data["full_name"] = payload.full_name
+
+    if not update_data:
+        raise HTTPException(status_code=404, detail="No user data found")
+
+    doc = users.find_one({"email": email})
+    if doc:
+        raise HTTPException(status_code=400, detail="This email already exists. Add another one")
+    else:
+        result = users.update_one({"email": email}, {"$set": update_data})
+
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="No user data found")
+
+    log_query(
+        user_id=str(payload.email),
+        query_text="UPDATE_USER",
+        params={
+            "email": payload.email,
+            "full_name": payload.full_name,
+        }
+    )
+
+    return update_data
+
+
+@router.put("/{email}", response_model=User)
+def update_user_basic_data(email: str, payload: UserUpdate, db=Depends(get_mongo_db)):
+    return update_user_basic_data_service(email, payload, db)
+
 
 @router.post("/login", response_model=User)
 def login_user(payload: UserLogin, db=Depends(get_mongo_db)):

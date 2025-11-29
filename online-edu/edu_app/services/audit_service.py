@@ -29,8 +29,8 @@ def log_query(user_id: str, query_text: str, params: dict | None = None):
 def log_security_event(user_id: str,  action: str, details:str | None = None):
     session = get_cassandra_session()
     cql = '''
-        INSERT INTO segurity_logs (user_id, ts, action, details)
-        VALUES (%s, %s, %s, %s, %s)
+        INSERT INTO security_logs(user_id, ts, action, details)
+        VALUES (%s, %s, %s, %s)
     '''
     now_ts = datetime.utcnow()
 
@@ -42,3 +42,9 @@ def log_security_event(user_id: str,  action: str, details:str | None = None):
         'status': 'ok',
         'ts': now_ts.isoformat()
     }
+def log_lesson_progress(user_id: str, course_id: str, lesson_id: str, details : str | None = None):
+    session = get_cassandra_session()
+    cql = '''
+        
+    '''
+

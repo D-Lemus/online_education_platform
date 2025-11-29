@@ -19,7 +19,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     full_name: str
     password: str
-    role: str = "Student"
+    role: str = "Student" | "Admin" | "Professor"
 
 
 
