@@ -4,12 +4,15 @@ from Client_common import (
     list_courses_cli,
     list_lessons_cli,
     update_user_cli,
+    update_user_role_cli,
+    delete_user_cli
 )
+
 
 
 def admin_menu(user_info: dict):
     """
-    Menú para usuarios con rol Admin.
+    Menu para usuarios con rol Admin.
     Más adelante puedes agregar:
     - Cambiar rol de usuarios
     - Eliminar usuarios
@@ -27,6 +30,7 @@ Role: {user_info.get("role")}
 4) Actualizar MI usuario (email / nombre)
 5) Actualizar OTRO usuario por email (admin)
 6) Cerrar sesión y regresar al menú principal
+7) Actualizar el rol un usuario
 """)
         option = input("Elige una opción: ")
 
@@ -53,6 +57,16 @@ Role: {user_info.get("role")}
         elif option == "6":
             print("Cerrando sesión de Admin...")
             break
+
+        elif option == "7":
+            # Admin actualiza a otro usuario
+            target_email = input("Email del usuario a actualizar: ")
+            new_role = input("Nuevo Rol: ")
+            update_user_role_cli(target_email,new_role)
+
+        elif option == "8":
+            target_email = input("Email del usuario a eliminar: ")
+            delete_user_cli(target_email)
 
         else:
             print("Opción no válida.")

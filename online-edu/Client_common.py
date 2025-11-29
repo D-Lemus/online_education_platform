@@ -4,7 +4,6 @@ import requests
 
 API_URL = "http://127.0.0.1:8001"
 
-
 def safe_print_response(response: requests.Response):
     """Imprime la respuesta sin crashear cuando no es JSON."""
     print("Status code:", response.status_code)
@@ -14,6 +13,199 @@ def safe_print_response(response: requests.Response):
     except json.JSONDecodeError:
         print("El servidor no devolvió JSON. Cuerpo bruto:")
         print(response.text)
+
+#===================================== Courses and Lessons =====================================================
+
+def list_courses_cli():
+    print("\n=== Listar cursos ===")
+    response = requests.get(f"{API_URL}/courses/")
+    safe_print_response(response)
+
+
+def create_course_cli():
+    print("\n=== Crear Curso ===")
+    course_name = input("Nombre del curso: ")
+    taught_by = input("Profesor: ")
+
+    payload = {
+        "course_name": course_name,
+        "taught_by": taught_by
+    }
+
+    response = requests.post(f"{API_URL}/courses/", json=payload)
+    safe_print_response(response)
+
+
+def create_lesson_cli():
+    print("\n=== Crear Lección ===")
+    course_id = input("ID del curso: ")
+    title = input("Título: ")
+    content = input("Contenido: ")
+    while True:
+        try:
+            order = int(input("Orden (1,2,3...): "))
+            break
+        except ValueError:
+            print("Please put a valid number for the order.")
+    payload = {
+        "title": title,
+        "content": content,
+        "order": order
+    }
+
+    response = requests.post(f"{API_URL}/courses/{course_id}/lessons", json=payload)
+    safe_print_response(response)
+
+
+def list_lessons_cli():
+    print("\n=== Listar lecciones de un curso ===")
+    course_id = input("ID del curso: ")
+    response = requests.get(f"{API_URL}/courses/{course_id}/lessons")
+    safe_print_response(response)
+
+
+
+def select_course_cli() -> str | None:
+    """
+    Muestra todos los cursos y deja que el usuario elija uno por número.
+    Regresa el course_id (str) o None si algo falla.
+    """
+    print("\n=== Seleccionar curso ===")
+    response = requests.get(f"{API_URL}/courses/")
+
+    try:
+        data = response.json()
+    except json.JSONDecodeError:
+        print("Error: la respuesta de /courses/ no es JSON.")
+        print(response.text)
+        return None
+
+    if not isinstance(data, list) or len(data) == 0:
+        print("No hay cursos disponibles.")
+        return None
+
+    # Mostrar cursos numerados
+    for idx, course in enumerate(data, start=1):
+        name = course.get("course_name", "sin nombre")
+        taught_by = course.get("taught_by", "desconocido")
+        print(f"{idx}) {name}  (Profesor: {taught_by})")
+
+    choice = input("Elige un curso por número: ")
+    if not choice.isdigit():
+        print("Opción no válida.")
+        return None
+
+    choice_idx = int(choice)
+    if choice_idx < 1 or choice_idx > len(data):
+        print("Número fuera de rango.")
+        return None
+
+    selected_course = data[choice_idx - 1]
+    course_id = str(selected_course.get("_id") or selected_course.get("id"))
+    if not course_id:
+        print("No se encontró el ID del curso.")
+        return None
+
+    return course_id
+
+def select_lesson_cli(course_id: str) -> str | None:
+    """
+    Muestra las lecciones de un curso y deja que el usuario elija una por número.
+    Regresa el lesson_id (str) o None si algo falla.
+    """
+    print("\n=== Seleccionar lección ===")
+    response = requests.get(f"{API_URL}/courses/{course_id}/lessons")
+
+    try:
+        data = response.json()
+    except json.JSONDecodeError:
+        print("Error: la respuesta de /courses/{course_id}/lessons no es JSON.")
+        print(response.text)
+        return None
+
+    if not isinstance(data, list) or len(data) == 0:
+        print("No hay lecciones para este curso.")
+        return None
+
+    # Mostrar lecciones numeradas
+    for idx, lesson in enumerate(data, start=1):
+        title = lesson.get("title", "sin título")
+        order = lesson.get("order", "?")
+        print(f"{idx}) [{order}] {title}")
+
+    choice = input("Elige una lección por número: ")
+    if not choice.isdigit():
+        print("Opción no válida.")
+        return None
+
+    choice_idx = int(choice)
+    if choice_idx < 1 or choice_idx > len(data):
+        print("Número fuera de rango.")
+        return None
+
+    selected_lesson = data[choice_idx - 1]
+    lesson_id = str(selected_lesson.get("_id") or selected_lesson.get("id"))
+    if not lesson_id:
+        print("No se encontró el ID de la lección.")
+        return None
+
+    return lesson_id
+
+def complete_lesson_cli(current_user_email: str):
+    print("\n=== Marcar lección como completada ===")
+
+    # 1) Seleccionar curso
+    course_id = select_course_cli()
+    if course_id is None:
+        print("No se pudo seleccionar curso.")
+        return
+
+    # 2) Seleccionar lección
+    lesson_id = select_lesson_cli(course_id)
+    if lesson_id is None:
+        print("No se pudo seleccionar lección.")
+        return
+
+    # 3) Estado
+    status = input("Estado (entregada / no_entregada) [entregada]: ") or "entregada"
+
+    payload = {
+        "user_id": current_user_email,  # email como user_id
+        "course_id": course_id,
+        "lesson_id": lesson_id,
+        "status": status,
+    }
+
+    response = requests.post(
+        f"{API_URL}/progress/complete-lesson",
+        json=payload
+    )
+    safe_print_response(response)
+
+def my_progress_cli(current_user_email: str):
+    print("\n=== Ver mi progreso en un curso ===")
+
+    course_id = select_course_cli()
+    if course_id is None:
+        print("No se pudo seleccionar curso.")
+        return
+
+    limit = input("¿Cuántos registros quieres ver? [10]: ") or "10"
+
+    params = {
+        "user_id": current_user_email,
+        "limit": limit,
+    }
+
+    response = requests.get(
+        f"{API_URL}/progress/my-progress/{course_id}",
+        params=params
+    )
+    safe_print_response(response)
+
+
+#=================================Courses and Lessons===================================================
+
 
 
 # ---------- USUARIOS ----------
@@ -42,7 +234,7 @@ def login_cli():
     Si tiene éxito, devuelve un dict con la info del usuario (email, full_name, role).
     Si falla, devuelve None.
     """
-    print("\n=== Iniciar sesión ===")
+    print("\n=== Iniciar sesion ===")
     email = input("Email: ")
     password = input("Contraseña: ")
 
@@ -58,7 +250,7 @@ def login_cli():
         return None
 
     if response.status_code != 200:
-        print("Error al iniciar sesión:")
+        print("Error al iniciar sesion:")
         print(json.dumps(data, indent=2, ensure_ascii=False))
         return None
 
@@ -76,13 +268,13 @@ def update_user_cli(current_email: str) -> dict | None:
     print("\n=== Actualizar usuario ===")
     print(f"Email actual: {current_email}")
 
-    print("¿Qué quieres actualizar?")
+    print("¿Que quieres actualizar?")
     print("1) Solo email")
     print("2) Solo nombre")
     print("3) Email y nombre")
     print("4) Cancelar")
 
-    choice = input("Opción: ")
+    choice = input("Opcion: ")
 
     new_email = None
     new_full_name = None
@@ -143,55 +335,21 @@ def update_user_cli(current_email: str) -> dict | None:
     }
 
 
-# ---------- CURSOS Y LECCIONES ----------
-
-def list_courses_cli():
-    print("\n=== Listar cursos ===")
-    response = requests.get(f"{API_URL}/courses/")
-    safe_print_response(response)
-
-
-def create_course_cli():
-    print("\n=== Crear Curso ===")
-    course_name = input("Nombre del curso: ")
-    taught_by = input("Profesor: ")
-
-    payload = {
-        "course_name": course_name,
-        "taught_by": taught_by
-    }
-
-    response = requests.post(f"{API_URL}/courses/", json=payload)
-    safe_print_response(response)
-
-
-def create_lesson_cli():
-    print("\n=== Crear Lección ===")
-    course_id = input("ID del curso: ")
-    title = input("Título: ")
-    content = input("Contenido: ")
-    order = int(input("Orden (1,2,3...): "))
-
-    payload = {
-        "title": title,
-        "content": content,
-        "order": order
-    }
-
-    response = requests.post(f"{API_URL}/courses/{course_id}/lessons", json=payload)
-    safe_print_response(response)
-
-
-def list_lessons_cli():
-    print("\n=== Listar lecciones de un curso ===")
-    course_id = input("ID del curso: ")
-    response = requests.get(f"{API_URL}/courses/{course_id}/lessons")
-    safe_print_response(response)
-
-
 # ---------- ADMIN (USUARIOS) ----------
 
 def list_users_cli():
     print("\n=== Listar usuarios ===")
     response = requests.get(f"{API_URL}/users/")
     safe_print_response(response)
+
+def update_user_role_cli(email,new_role):
+    payload = {"role": new_role}
+    response = requests.put(f"{API_URL}/users/{email}/role", json=payload)
+    safe_print_response(response)
+
+def delete_user_cli(email):
+    payload = {"email": email}
+    response=requests.delete(f"{API_URL}/users/{email}")
+    safe_print_response(response)
+
+

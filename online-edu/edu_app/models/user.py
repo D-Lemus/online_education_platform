@@ -4,7 +4,7 @@ This should be enough to start coding routes
 """
 
 from pydantic import BaseModel, EmailStr
-from typing import Optional
+from typing import Optional, Literal
 
 class User(BaseModel):
     """Basic user model with email, full name and its role in the system"""
@@ -19,7 +19,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     full_name: str
     password: str
-    role: str = "Student" | "Admin" | "Professor"
+    role: str = "Student"
 
 
 
@@ -41,3 +41,5 @@ class UserUpdate(BaseModel):
     full_name: Optional[str]=None
     email:Optional[EmailStr]=None
 
+class UserRoleUpdate(BaseModel):
+    role: Literal["Student","Admin","Teacher"]

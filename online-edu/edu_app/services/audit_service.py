@@ -42,9 +42,27 @@ def log_security_event(user_id: str,  action: str, details:str | None = None):
         'status': 'ok',
         'ts': now_ts.isoformat()
     }
-def log_lesson_progress(user_id: str, course_id: str, lesson_id: str, details : str | None = None):
+def log_lesson_progress(user_id: str, course_id: str, lesson_id: str, status: str = "no_entregada"):
     session = get_cassandra_session()
-    cql = '''
-        
-    '''
+
+    cql = """
+        INSERT INTO lesson_progress (user_id, course_id, lesson_id, ts, status)
+        VALUES (%s, %s, %s, %s, %s)
+    """
+
+    now_ts = datetime.utcnow()
+    final_status = status or "no_entregada"
+    session.execute(
+        cql,
+        (user_id, course_id, lesson_id, now_ts, final_status)
+    )
+
+    return {
+        "status": "ok",
+        "ts": now_ts.isoformat()
+    }
+
+
+
+
 
