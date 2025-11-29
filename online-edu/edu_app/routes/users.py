@@ -5,7 +5,7 @@ from pymongo.collection import Collection
 from os import getenv
 from ..db.mongo import get_mongo_db
 from ..models.user import User, UserCreate, UserLogin
-from edu_app.services.audit_service import log_query
+from edu_app.services.audit_service import log_query, log_security_event
 
 
 router = APIRouter(
@@ -86,40 +86,40 @@ def login_user(payload: UserLogin, db=Depends(get_mongo_db)):
     user_doc = users.find_one({"email": payload.email})
     if not user_doc:
         try:
-            log_query(
+            log_security_event(
                 user_id=str(payload.email),
-                query_text="LOGIN_FAILED",
-                params={"reason": "user_not_found"}
-            )
+                action="LOGIN_FAILED",
+                details="User entered an Invalid email or password"
+                )
         except Exception:
             pass
 
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",
-        )
+            )
 
     stored_password = user_doc.get("hashed_password")
     if stored_password != payload.password:
         try:
-            log_query(
+            log_security_event(
                 user_id=str(payload.email),
-                query_text="LOGIN_FAILED",
-                params={"reason": "wrong_password"}
-            )
+                action="LOGIN_FAILED",
+                details="User entered an Invalid email or password"
+                )
         except Exception:
             pass
 
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
+            detail ="Invalid email or password",
         )
 
     try:
-        log_query(
-            user_id=str(user_doc["email"]),
-            query_text="LOGIN_SUCCESS",
-            params={"role": user_doc.get("role", "Student")}
+        log_security_event(
+            user_id=str(payload.email),
+            action="LOGIN_SUCCESS",
+            details= "User logged in successfully"
         )
     except Exception:
         pass

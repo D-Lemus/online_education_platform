@@ -21,6 +21,8 @@ class UserCreate(BaseModel):
     password: str
     role: str = "Student"
 
+
+
 class UserInDB(User):
     """thi is representing what we store in databases. the only difference
     is that we store hashed password instead of the real password"""
@@ -33,3 +35,9 @@ class UserLogin(BaseModel):
     """
     email: EmailStr
     password: str
+
+class UserUpdate(BaseModel):
+    """Datos que el usuario puede actualizar de su perfil."""
+    full_name: Optional[str]=None
+    email:Optional[EmailStr]=None
+

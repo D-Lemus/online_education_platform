@@ -85,6 +85,7 @@ def main():
 2) Crear curso
 3) Crear lección
 4) Salir
+5) Login
 """)
         choice = input("Opción: ")
 
