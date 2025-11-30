@@ -3,9 +3,12 @@ from cassandra.cqlengine.columns import Boolean
 from fastapi import Depends, HTTPException, APIRouter
 from pymongo import MongoClient
 from edu_app.routes.enrollments import auto_enroll_teacher
+from . import lessons
 
 from ..db.mongo import get_mongo_db
-from ..models.courses import Course, CourseCreate
+from ..models.courses import Course, CourseCreate, Lesson, CourseUpdate
+from ..services.audit_service import log_query
+
 
 def get_courses_collection(db = Depends(get_mongo_db)):
     """Pequeña función helper para obtener la colección de cursos."""
@@ -113,3 +116,126 @@ def get_course_by_id(course_id: str, db: MongoClient = Depends(get_mongo_db)):
         lessons=doc.get("lessons", []),
         enrolled_count=doc.get("enrolled_count", 0),
     )
+
+@router.put("/{course_id}", response_model=CourseUpdate)
+def update_course(course_id:str, payload : CourseUpdate, db = Depends(get_mongo_db)):
+    """Function that updates a course """
+    courses = get_courses_collection(db)
+
+    update_data = {}
+    if payload.course_name is not None:
+        update_data["course_name"]=payload.course_name
+    if payload.taught_by is not None:
+        update_data["taught_by"]=payload.taught_by
+    if payload.enrolled_count is not None:
+        update_data["enrolled_count"]=payload.enrolled_count
+
+    doc = courses.find_one({"id": course_id})
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    results = courses.update_one({'id': course_id}, {'$set': update_data})
+    if results.modified_count == 0:
+        raise HTTPException(status_code= 404, detail="Course not found")
+
+    log_query(
+        user_id="God",
+        query_text ="UPDATE_COURSE",
+        params={
+            "course_id": course_id,
+            "course_name": payload.course_name,
+            "taught_by": payload.taught_by,
+        }
+    )
+
+    updated = courses.find_one({"id": course_id})
+
+    return CourseUpdate(
+        course_name=updated["course_name"],
+        taught_by=updated["taught_by"],
+        enrolled_count=updated.get("enrolled_count", 0),
+    )
+
+@router.put("/{course_id}/lessons/{lesson_id}", response_model=Lesson)
+def update_lesson(course_id: str, lesson_id: str, payload: Lesson, db = Depends(get_mongo_db)):
+    """Function that updates a lesson """
+    courses = get_courses_collection(db)
+
+    doc = courses.find_one({"id": course_id, "lessons.id":lesson_id})
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Course or lesson not found")
+
+
+    results = courses.update_one(
+        {"id": course_id, "lessons.id":lesson_id},
+        {
+            "$set":{
+                'lessons.$.title': payload.title,
+                'lessons.$.content': payload.content,
+                'lessons.$.order': payload.order,
+            }
+        }
+    )
+
+    if results.modified_count == 0:
+        raise HTTPException(status_code= 404, detail="lesson unable to be modified.")
+
+
+    updated = courses.find_one({"id": course_id})
+
+    lesson = None
+    for l in updated["lessons"]:
+        if l["id"]==lesson_id:
+            lesson =  l
+            break
+
+    log_query(
+        user_id="Teacher or Admin",
+        query_text="UPDATE_LESSON",
+        params={
+            "lesson_id": lesson_id,
+            "course_id": course_id,
+        }
+    )
+
+    return Lesson(**lesson)
+
+@router.delete("/{course_id}/lesson/{lesson_id}", response_model=Lesson)
+def delete_lesson(course_id: str, lesson_id: str, db = Depends(get_mongo_db)):
+    """Function that deletes a lesson"""
+    courses = get_courses_collection(db)
+
+    doc = courses.find_one({"id": course_id, "lessons.id":lesson_id})
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Course or lesson not found")
+
+
+    result = courses.update_one(
+        {"id": course_id},{"$pull":{"lessons":{"id":lesson_id}}}
+    )
+
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Course or lesson not found")
+
+    log_query(
+        user_id="Teacher or Admin",
+        query_text="DELETE_LESSON",
+        params={
+            "less_id":lesson_id,
+        }
+    )
+
+    lesson_to_delete = None
+    for l in doc["lessons"]:
+        if l["id"] == lesson_id:
+            lesson_to_delete = l
+            break
+
+    return Lesson(**lesson_to_delete)
+
+
+
+
+
+
+

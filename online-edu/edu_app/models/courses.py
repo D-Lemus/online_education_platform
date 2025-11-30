@@ -20,3 +20,8 @@ class CourseCreate(BaseModel):
     """Inputs required to create a new course."""
     course_name: str
     taught_by: str
+
+class CourseUpdate(BaseModel):
+    course_name: Optional[str] = None
+    taught_by: Optional[str] = None
+    enrolled_count: Optional[int] = None
