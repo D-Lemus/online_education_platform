@@ -31,6 +31,7 @@ Role: {user_info.get("role")}
 5) Actualizar OTRO usuario por email (admin)
 6) Cerrar sesión y regresar al menú principal
 7) Actualizar el rol un usuario
+8) Eliminar un usuario
 """)
         option = input("Elige una opción: ")
 

@@ -1,11 +1,10 @@
 
-from typing import Optional
-from enum import Enum
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel
-
+from datetime import datetime
 from edu_app.db.cassandra import get_cassandra_session
 from edu_app.services.audit_service import log_lesson_progress
+from edu_app.models.progress import LessonStatus, LessonProgressEvent, LessonProgressRecord
 
 
 router = APIRouter(
@@ -13,48 +12,27 @@ router = APIRouter(
     tags=["progress"]
 )
 
-
-# --------- MODELOS ---------
-class LessonStatus(str, Enum):
-    ENTREGADA = "entregada"
-    NO_ENTREGADA = "no_entregada"
-
-class LessonProgressEvent(BaseModel):
-    user_id: str
-    course_id: str
-    lesson_id: str
-    status: LessonStatus = LessonStatus.NO_ENTREGADA
-
-class LessonProgressRecord(BaseModel):
-    """
-    Registro leído desde Cassandra.
-    """
-    user_id: str
-    course_id: str
-    lesson_id: str
-    ts: str
-    status: Optional[str] = None
-
-
 # --------- ENDPOINTS ---------
 
 @router.post("/complete-lesson")
 def complete_lesson(payload: LessonProgressEvent):
-    """
-    RF-28: Registrar lección completada por estudiante.
-    """
+
+    if isinstance(payload.status, LessonStatus):
+        status_value = payload.status.value
+    else:
+        status_value = str(payload.status)
+
     log_result = log_lesson_progress(
         user_id=payload.user_id,
         course_id=payload.course_id,
         lesson_id=payload.lesson_id,
-        status=payload.status,
+        status=status_value,
     )
 
     return {
         "message": "Lesson progress recorded",
         "log": log_result,
     }
-
 
 @router.get("/my-progress/{course_id}",response_model=list[LessonProgressRecord])
 def my_progress(
@@ -63,8 +41,8 @@ def my_progress(
     limit: int = Query(20, ge=1, le=100)
 ):
     """
-    RF-29: Consultar progreso del estudiante en un curso.
-    Lee de la tabla lesson_progress filtrando por (user_id, course_id).
+    Consults the progress of a student in a course
+    reads the table *lesson_progress* filtered by the user_id & course_id
     """
     session = get_cassandra_session()
 
@@ -73,7 +51,7 @@ def my_progress(
         FROM lesson_progress
         WHERE user_id = %s AND course_id = %s
         LIMIT %s
-    """
+        """
 
     rows = session.execute(cql, (user_id, course_id, limit))
 

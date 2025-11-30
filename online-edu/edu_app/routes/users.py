@@ -15,13 +15,18 @@ router = APIRouter(
 )
 
 def get_users_collection(db):
-    """small funtion to make sure
-    we are using the same database"""
+    """
+    small funtion to make sure
+    we are using the same database
+    """
     return db["users"]
 
 @router.post("/", response_model=User)
-
 def create_user(payload: UserCreate, db= Depends(get_mongo_db)):
+    """
+    creates a new user validating that the email is new
+    **This query is registered on a cassandra DB made for log queries**
+    """
     users=get_users_collection(db)
     existing = users.find_one({"email": payload.email})
     if existing:
@@ -62,7 +67,7 @@ def create_user(payload: UserCreate, db= Depends(get_mongo_db)):
 @router.get("/", response_model=list[User])
 def list_users(db = Depends(get_mongo_db)):
     """
-    Return all users from MongoDB (without passwords).
+    Returns all users on the mongo DB (without a password)
     """
     users = get_users_collection(db)
 
@@ -78,9 +83,14 @@ def list_users(db = Depends(get_mongo_db)):
             )
         )
 
+
     return result
 @router.get("/{email}", response_model=User)
 def get_user_profile(email: str, db: Collection =Depends(get_mongo_db)):
+    """
+    get a user profile filtered by email
+    **This query is registered on a cassandra DB made for log queries**
+    """
     users = get_users_collection(db)
 
     doc = users.find_one({"email":email})
@@ -94,6 +104,11 @@ def get_user_profile(email: str, db: Collection =Depends(get_mongo_db)):
 
 
 def update_user_basic_data_service(email: str, payload: UserUpdate, db):
+    """
+    INTERNAL FUNCTION
+    Allows the user to update their email or full name
+    **This query is registered on a cassandra DB made for log queries**
+    """
     users = get_users_collection(db)
 
     update_data = {}
@@ -128,11 +143,19 @@ def update_user_basic_data_service(email: str, payload: UserUpdate, db):
 
 @router.put("/{email}", response_model=User)
 def update_user_basic_data(email: str, payload: UserUpdate, db=Depends(get_mongo_db)):
+    """
+    EXTERNAL FUNCTION
+    runs 'update_user_basic_data_service'
+    """
     return update_user_basic_data_service(email, payload, db)
 
 
 @router.post("/login", response_model=User)
 def login_user(payload: UserLogin, db=Depends(get_mongo_db)):
+    """
+    Allows the user to log in
+    **This query is registered on a cassandra DB made for security logs**
+    """
     users = get_users_collection(db)
 
     user_doc = users.find_one({"email": payload.email})
@@ -183,9 +206,14 @@ def login_user(payload: UserLogin, db=Depends(get_mongo_db)):
     )
 
 
-#ADMIN QUERIES
+#===========================ADMIN QUERIES===========================
 @router.put('/{email}/role', response_model=UserRoleUpdate)
 def update_user_role(email:str, payload: UserRoleUpdate, db = Depends(get_mongo_db)):
+
+    """
+    Allows the ADMIN to update the role of the user
+    **This query is registered on a cassandra DB made for log queries**
+    """
     users = get_users_collection(db)
 
     doc = users.find_one({"email": email})
@@ -211,6 +239,10 @@ def update_user_role(email:str, payload: UserRoleUpdate, db = Depends(get_mongo_
 
 @router.delete('/{email}')
 def delete_user(email: str, db=Depends(get_mongo_db)):
+    """
+    Allows the ADMIN to delete a user from the mongo DB
+    **This query is registered on a cassandra DB made for log queries**
+    """
     users = get_users_collection(db)
 
     doc = users.find_one({"email": email})

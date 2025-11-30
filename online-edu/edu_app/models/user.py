@@ -24,22 +24,24 @@ class UserCreate(BaseModel):
 
 
 class UserInDB(User):
-    """thi is representing what we store in databases. the only difference
-    is that we store hashed password instead of the real password"""
+    """this is representing what we store in databases but the only difference
+    is that we store hashed password instead of the real password NOTE(we were not able to create a hashed password)"""
     hashed_password: str
 
 class UserLogin(BaseModel):
     """
-    Model for login requests.
-    Only requires email and password.
+    Model for login requests
+    Only requires email and password
     """
     email: EmailStr
     password: str
 
 class UserUpdate(BaseModel):
-    """Datos que el usuario puede actualizar de su perfil."""
+    """Data that the user needs to introduce in order to
+    update their password """
     full_name: Optional[str]=None
     email:Optional[EmailStr]=None
 
 class UserRoleUpdate(BaseModel):
+    """Data that the Admin needs to introduce in order to change a users role"""
     role: Literal["Student","Admin","Teacher"]

@@ -1,6 +1,6 @@
 # menu_teacher.py
 from Client_common import (
-    list_courses_cli,
+    list_my_courses_cli,
     create_course_cli,
     create_lesson_cli,
     list_lessons_cli,
@@ -28,16 +28,16 @@ Role: {user_info.get("role")}
         option = input("Elige una opción: ")
 
         if option == "1":
-            create_course_cli()
+            create_course_cli(user_info["email"])
 
         elif option == "2":
             create_lesson_cli()
 
         elif option == "3":
-            list_courses_cli()
+            list_my_courses_cli(user_info["email"])
 
         elif option == "4":
-            list_lessons_cli()
+            list_lessons_cli(user_info["email"])
 
         elif option == "5":
             updated = update_user_cli(user_info["email"])

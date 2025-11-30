@@ -2,6 +2,7 @@
 import json
 import requests
 
+
 API_URL = "http://127.0.0.1:8001"
 
 def safe_print_response(response: requests.Response):
@@ -15,21 +16,33 @@ def safe_print_response(response: requests.Response):
         print(response.text)
 
 #===================================== Courses and Lessons =====================================================
-
 def list_courses_cli():
+    """
+    List all courses
+    """
     print("\n=== Listar cursos ===")
     response = requests.get(f"{API_URL}/courses/")
     safe_print_response(response)
 
+def list_my_courses_cli(current_user_email: str):
+    """
+    List the courses the user is enroleld in
+    """
+    print("\n=== My courses ===")
+    response = requests.get(f"{API_URL}/courses/by-teacher/{current_user_email}")
+    safe_print_response(response)
 
-def create_course_cli():
-    print("\n=== Crear Curso ===")
-    course_name = input("Nombre del curso: ")
-    taught_by = input("Profesor: ")
+
+def create_course_cli(current_user_email: str):
+    """
+    Creates a course
+    """
+    print("\n=== Create Course ===")
+    course_name = input("Course Name: ")
 
     payload = {
         "course_name": course_name,
-        "taught_by": taught_by
+        "taught_by": current_user_email
     }
 
     response = requests.post(f"{API_URL}/courses/", json=payload)
@@ -37,8 +50,11 @@ def create_course_cli():
 
 
 def create_lesson_cli():
+    """
+    Crea una leccion
+    """
     print("\n=== Crear Lección ===")
-    course_id = input("ID del curso: ")
+    course_id = select_course_cli()
     title = input("Título: ")
     content = input("Contenido: ")
     while True:
@@ -57,9 +73,13 @@ def create_lesson_cli():
     safe_print_response(response)
 
 
-def list_lessons_cli():
+def list_lessons_cli(current_user_email: str):
+    """
+    Lista las lecciones de un curso.
+    """
     print("\n=== Listar lecciones de un curso ===")
-    course_id = input("ID del curso: ")
+    list_my_courses_cli(current_user_email)
+    course_id = select_course_cli()
     response = requests.get(f"{API_URL}/courses/{course_id}/lessons")
     safe_print_response(response)
 
@@ -67,8 +87,7 @@ def list_lessons_cli():
 
 def select_course_cli() -> str | None:
     """
-    Muestra todos los cursos y deja que el usuario elija uno por número.
-    Regresa el course_id (str) o None si algo falla.
+    Shows all the courses and makes the user choose one
     """
     print("\n=== Seleccionar curso ===")
     response = requests.get(f"{API_URL}/courses/")
@@ -110,8 +129,7 @@ def select_course_cli() -> str | None:
 
 def select_lesson_cli(course_id: str) -> str | None:
     """
-    Muestra las lecciones de un curso y deja que el usuario elija una por número.
-    Regresa el lesson_id (str) o None si algo falla.
+    Shows the lessons of a course
     """
     print("\n=== Seleccionar lección ===")
     response = requests.get(f"{API_URL}/courses/{course_id}/lessons")
@@ -152,6 +170,9 @@ def select_lesson_cli(course_id: str) -> str | None:
     return lesson_id
 
 def complete_lesson_cli(current_user_email: str):
+    """
+    Marks a lesson as completed else not compelted
+    """
     print("\n=== Marcar lección como completada ===")
 
     # 1) Seleccionar curso
@@ -183,6 +204,9 @@ def complete_lesson_cli(current_user_email: str):
     safe_print_response(response)
 
 def my_progress_cli(current_user_email: str):
+    """
+    Seee the progress that a user has on a course
+    """
     print("\n=== Ver mi progreso en un curso ===")
 
     course_id = select_course_cli()
@@ -208,9 +232,12 @@ def my_progress_cli(current_user_email: str):
 
 
 
-# ---------- USUARIOS ----------
+# ---------- USERS ----------
 
 def create_user_cli():
+    """
+    Can create a user
+    """
     print("\n=== Crear Usuario ===")
     email = input("Email: ")
     full_name = input("Nombre completo: ")
@@ -230,9 +257,7 @@ def create_user_cli():
 
 def login_cli():
     """
-    Intenta iniciar sesión.
-    Si tiene éxito, devuelve un dict con la info del usuario (email, full_name, role).
-    Si falla, devuelve None.
+    Log in function validator
     """
     print("\n=== Iniciar sesion ===")
     email = input("Email: ")
@@ -262,8 +287,7 @@ def login_cli():
 
 def update_user_cli(current_email: str) -> dict | None:
     """
-    Actualiza el usuario con email current_email usando tu endpoint PUT /users/{email}.
-    Regresa un dict con los datos actualizados (email/full_name/role) o None si falló.
+    Updates the users either email or name or both
     """
     print("\n=== Actualizar usuario ===")
     print(f"Email actual: {current_email}")

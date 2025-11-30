@@ -1,16 +1,12 @@
-# menu_student.py
 from Client_common import (
     list_courses_cli,
     list_lessons_cli,
     update_user_cli,
+    complete_lesson_cli,
+    my_progress_cli,
 )
 
-
 def student_menu(user_info: dict):
-    """
-    Menú para usuarios con rol Student.
-    user_info: dict con email, full_name, role.
-    """
     while True:
         print(f"""
 === MENÚ STUDENT ===
@@ -19,8 +15,10 @@ Role: {user_info.get("role")}
 
 1) Ver todos los cursos
 2) Ver lecciones de un curso
-3) Actualizar mi perfil (email / nombre)
-4) Cerrar sesión y regresar al menú principal
+3) Marcar lección como completada
+4) Ver mi progreso en un curso
+5) Actualizar mi perfil (email / nombre)
+6) Cerrar sesión y regresar al menú principal
 """)
         option = input("Elige una opción: ")
 
@@ -28,17 +26,22 @@ Role: {user_info.get("role")}
             list_courses_cli()
 
         elif option == "2":
-            list_lessons_cli()
+            # aquí puedes usar select_course_cli y no filtrar por inscripción todavía
+            list_lessons_cli(None)  # puedes adaptar la función para aceptar None
 
         elif option == "3":
-            # Actualizamos usando el email actual
-            updated = update_user_cli(user_info["email"])
-            if updated is not None:
-                # Actualizamos también la info local para que el menú muestre los nuevos datos
-                user_info.update(updated)
+            complete_lesson_cli(user_info["email"])
 
         elif option == "4":
-            print("Cerrando sesión de Student...")
+            my_progress_cli(user_info["email"])
+
+        elif option == "5":
+            updated = update_user_cli(user_info["email"])
+            if updated is not None:
+                user_info.update(updated)
+
+        elif option == "6":
+            print("Cerrando sesión de Student.")
             break
 
         else:
