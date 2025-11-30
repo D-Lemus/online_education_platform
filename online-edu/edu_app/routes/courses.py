@@ -2,6 +2,7 @@ from bson import ObjectId
 from cassandra.cqlengine.columns import Boolean
 from fastapi import Depends, HTTPException, APIRouter
 from pymongo import MongoClient
+from edu_app.routes.enrollments import auto_enroll_teacher
 
 from ..db.mongo import get_mongo_db
 from ..models.courses import Course, CourseCreate
@@ -39,6 +40,14 @@ def create_course(payload: CourseCreate, db = Depends(get_mongo_db)):
         }
 
     courses.insert_one(course_doc)
+    # Auto-enroll Teacher in Dgraph
+    try:
+        auto_enroll_teacher(
+            course_id=course_id,
+            teacher_email=payload.taught_by
+        )
+    except Exception as e:
+        print(f"Auto enrolliar of teacher failed")
 
     return Course(**course_doc)
 

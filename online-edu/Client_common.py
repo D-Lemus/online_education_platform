@@ -203,6 +203,7 @@ def complete_lesson_cli(current_user_email: str):
     )
     safe_print_response(response)
 
+
 def my_progress_cli(current_user_email: str):
     """
     Seee the progress that a user has on a course
@@ -226,6 +227,7 @@ def my_progress_cli(current_user_email: str):
         params=params
     )
     safe_print_response(response)
+
 
 
 #=================================Courses and Lessons===================================================
@@ -377,3 +379,135 @@ def delete_user_cli(email):
     safe_print_response(response)
 
 
+# ====================== Enrollments (Dgraph + Mongo) ======================
+
+def enroll_in_course_cli(current_user_email: str):
+    """
+    CLI: Enroll the current student in a course.
+    Uses Dgraph endpoint /enrollments/enroll.
+    """
+    print("\n=== Enroll in a course ===")
+
+    # Reuse the helper to pick a course from Mongo
+    course_id = select_course_cli()
+    if course_id is None:
+        print("Could not select a course.")
+        return
+
+    payload = {
+        "user_id": current_user_email,
+        "course_id": course_id,
+    }
+
+    response = requests.post(
+        f"{API_URL}/enrollments/enroll",
+        json=payload
+    )
+    safe_print_response(response)
+
+
+def list_my_enrolled_courses_cli(current_user_email: str):
+    """
+    CLI: List courses where the current student is enrolled.
+    Calls /enrollments/me and prints course_id + course_name.
+    """
+    print("\n=== My enrolled courses ===")
+
+    params = {
+        "user_id": current_user_email
+    }
+
+    response = requests.get(
+        f"{API_URL}/enrollments/me",
+        params=params
+    )
+    safe_print_response(response)
+
+
+def select_my_course_cli(current_user_email: str) -> str | None:
+    """
+    Show only the courses taught by the current teacher
+    and let them select one by number.
+    Returns the course_id (Mongo id) or None on error.
+    """
+    print("\n=== Select one of my courses ===")
+    response = requests.get(f"{API_URL}/courses/by-teacher/{current_user_email}")
+
+    try:
+        data = response.json()
+    except json.JSONDecodeError:
+        print("Error: /courses/by-teacher did not return JSON.")
+        print(response.text)
+        return None
+
+    if not isinstance(data, list) or len(data) == 0:
+        print("You have no courses yet.")
+        return None
+
+    for idx, course in enumerate(data, start=1):
+        name = course.get("course_name", "unnamed")
+        print(f"{idx}) {name}")
+
+    choice = input("Choose a course by number: ")
+    if not choice.isdigit():
+        print("Invalid option.")
+        return None
+
+    choice_idx = int(choice)
+    if choice_idx < 1 or choice_idx > len(data):
+        print("Number out of range.")
+        return None
+
+    selected = data[choice_idx - 1]
+    course_id = str(selected.get("id") or selected.get("_id"))
+    if not course_id:
+        print("Course id not found.")
+        return None
+
+    return course_id
+
+
+def list_students_in_course_cli(current_user_email: str):
+    """
+    CLI: Show the students enrolled in one of the teacher's courses.
+    Uses /enrollments/courses/{course_id}/students.
+    """
+    print("\n=== View students in my course ===")
+
+    course_id = select_my_course_cli(current_user_email)
+    if course_id is None:
+        print("Could not select a course.")
+        return
+
+    response = requests.get(
+        f"{API_URL}/enrollments/courses/{course_id}/students"
+    )
+    safe_print_response(response)
+
+def unenroll_student_from_course_cli(current_user_email: str):
+    """
+    CLI: Unenroll a student from one of the teacher's courses.
+    Uses /enrollments/unenroll.
+    """
+    print("\n=== Unenroll a student from my course ===")
+
+    course_id = select_my_course_cli(current_user_email)
+    if course_id is None:
+        print("Could not select a course.")
+        return
+
+    student_email = input("Student email to unenroll: ").strip()
+    if not student_email:
+        print("No email provided.")
+        return
+
+    payload = {
+        "user_id": student_email,
+        "course_id": course_id,
+    }
+
+    response = requests.post(
+        f"{API_URL}/enrollments/unenroll",
+        json=payload
+    )
+    safe_print_response(response)

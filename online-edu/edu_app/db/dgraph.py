@@ -30,7 +30,6 @@ def init_dgraph_schema():
 
     enrolled_in: [uid] @reverse .
 
-
     type User {
         user_id
         full_name

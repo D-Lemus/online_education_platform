@@ -5,27 +5,33 @@ from Client_common import (
     create_lesson_cli,
     list_lessons_cli,
     update_user_cli,
+    list_students_in_course_cli,
+    unenroll_student_from_course_cli,
 )
 
 
+# menu_teacher.py
+
 def teacher_menu(user_info: dict):
     """
-    Menú para usuarios con rol Teacher.
+    Menu for users with role Teacher.
     """
     while True:
         print(f"""
-=== MENÚ TEACHER ===
-Usuario: {user_info.get("full_name")} ({user_info.get("email")})
+=== TEACHER MENU ===
+User: {user_info.get("full_name")} ({user_info.get("email")})
 Role: {user_info.get("role")}
 
-1) Crear curso
-2) Crear lección para un curso
-3) Ver todos los cursos
-4) Ver lecciones de un curso
-5) Actualizar mi perfil (email / nombre)
-6) Cerrar sesión y regresar al menú principal
+1) Create course
+2) Create lesson for one of my courses
+3) View my courses
+4) View lessons of one of my courses
+5) View students enrolled in one of my courses
+6) Unenroll a student from one of my courses
+7) Update my profile (email / name)
+8) Logout and return to main menu
 """)
-        option = input("Elige una opción: ")
+        option = input("Choose an option: ")
 
         if option == "1":
             create_course_cli(user_info["email"])
@@ -40,13 +46,19 @@ Role: {user_info.get("role")}
             list_lessons_cli(user_info["email"])
 
         elif option == "5":
+            list_students_in_course_cli(user_info["email"])
+
+        elif option == "6":
+            unenroll_student_from_course_cli(user_info["email"])
+
+        elif option == "7":
             updated = update_user_cli(user_info["email"])
             if updated is not None:
                 user_info.update(updated)
 
-        elif option == "6":
-            print("Cerrando sesión de Teacher...")
+        elif option == "8":
+            print("Logging out (Teacher)...")
             break
 
         else:
-            print("Opción no válida.")
+            print("Invalid option.")

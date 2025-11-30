@@ -2,38 +2,44 @@ from Client_common import (
     list_courses_cli,
     list_lessons_cli,
     update_user_cli,
-    complete_lesson_cli,
-    my_progress_cli,
+    enroll_in_course_cli,
+    list_my_enrolled_courses_cli,
 )
-
 def student_menu(user_info: dict):
+    """
+    Menu for users with role Student.
+    """
     while True:
         print(f"""
-=== MENÚ STUDENT ===
-Usuario: {user_info.get("full_name")} ({user_info.get("email")})
+=== STUDENT MENU ===
+User: {user_info.get("full_name")} ({user_info.get("email")})
 Role: {user_info.get("role")}
 
-1) Ver todos los cursos
-2) Ver lecciones de un curso
-3) Marcar lección como completada
-4) Ver mi progreso en un curso
-5) Actualizar mi perfil (email / nombre)
-6) Cerrar sesión y regresar al menú principal
+1) View all available courses
+2) View my enrolled courses
+3) Enroll in a course
+4) View lessons of a course (generic)
+5) Update my profile (email / name)
+6) Logout and return to main menu
 """)
-        option = input("Elige una opción: ")
+        option = input("Choose an option: ")
 
         if option == "1":
+            # All courses from Mongo (no filter)
             list_courses_cli()
 
         elif option == "2":
-            # aquí puedes usar select_course_cli y no filtrar por inscripción todavía
-            list_lessons_cli(None)  # puedes adaptar la función para aceptar None
+            # Only courses where this student is enrolled (Dgraph + Mongo)
+            list_my_enrolled_courses_cli(user_info["email"])
 
         elif option == "3":
-            complete_lesson_cli(user_info["email"])
+            # Enroll current student in a course (Dgraph)
+            enroll_in_course_cli(user_info["email"])
 
         elif option == "4":
-            my_progress_cli(user_info["email"])
+            # For now, reuse the generic lessons listing
+            # (puedes luego cambiarla para que use solo cursos inscritos)
+            list_lessons_cli(user_info["email"])
 
         elif option == "5":
             updated = update_user_cli(user_info["email"])
@@ -41,8 +47,8 @@ Role: {user_info.get("role")}
                 user_info.update(updated)
 
         elif option == "6":
-            print("Cerrando sesión de Student.")
+            print("Logging out (Student)...")
             break
 
         else:
-            print("Opción no válida.")
+            print("Invalid option.")
