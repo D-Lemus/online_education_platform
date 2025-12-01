@@ -115,3 +115,4 @@ Las consultas a Dgraph pueden fallar si user_id o course_id cambian.
 Los logs de inscripción pueden usar UID en lugar de email, lo cual crea inconsistencias.
 La API devuelve error 404 si un recurso no existe.
 La API devuelve JSON estructurado en todas las respuestas exitosas.
+Hola como estan yo tambien colabore, pero no hice ningun commit Atte. Nestor Eduardo Perez Avalos
