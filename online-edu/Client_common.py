@@ -73,15 +73,33 @@ def create_lesson_cli():
     safe_print_response(response)
 
 
-def list_lessons_cli(current_user_email: str):
+def list_lessons_cli(
+    current_user_email: str | None = None,
+    only_my_courses: bool = False
+):
     """
     Lista las lecciones de un curso.
+
+    - Si only_my_courses=True y current_user_email está definido,
+      solo deja elegir entre los cursos de ese profesor.
+    - En cualquier otro caso, deja elegir entre todos los cursos.
     """
     print("\n=== Listar lecciones de un curso ===")
-    list_my_courses_cli(current_user_email)
-    course_id = select_course_cli()
+
+    if only_my_courses and current_user_email:
+        # Para Teachers: solo sus cursos
+        course_id = select_my_course_cli(current_user_email)
+    else:
+        # Genérico: cualquier curso del sistema
+        course_id = select_course_cli()
+
+    if course_id is None:
+        print("No se pudo seleccionar curso.")
+        return
+
     response = requests.get(f"{API_URL}/courses/{course_id}/lessons")
     safe_print_response(response)
+
 
 
 
@@ -120,7 +138,7 @@ def select_course_cli() -> str | None:
         return None
 
     selected_course = data[choice_idx - 1]
-    course_id = str(selected_course.get("_id") or selected_course.get("id"))
+    course_id = str(selected_course.get("id"))
     if not course_id:
         print("No se encontró el ID del curso.")
         return None
@@ -162,7 +180,7 @@ def select_lesson_cli(course_id: str) -> str | None:
         return None
 
     selected_lesson = data[choice_idx - 1]
-    lesson_id = str(selected_lesson.get("_id") or selected_lesson.get("id"))
+    lesson_id = str(selected_lesson.get("id"))
     if not lesson_id:
         print("No se encontró el ID de la lección.")
         return None
@@ -295,10 +313,10 @@ def update_user_cli(current_email: str) -> dict | None:
     print(f"Email actual: {current_email}")
 
     print("¿Que quieres actualizar?")
-    print("1) Solo email")
-    print("2) Solo nombre")
-    print("3) Email y nombre")
-    print("4) Cancelar")
+
+    print("1) Solo nombre")
+
+    print("2) Cancelar")
 
     choice = input("Opcion: ")
 
@@ -306,13 +324,8 @@ def update_user_cli(current_email: str) -> dict | None:
     new_full_name = None
 
     if choice == "1":
-        new_email = input("Introduce el nuevo email: ")
+        new_full_name = input("Introduce el nuevo nombre: ")
     elif choice == "2":
-        new_full_name = input("Introduce el nuevo nombre: ")
-    elif choice == "3":
-        new_email = input("Introduce el nuevo email: ")
-        new_full_name = input("Introduce el nuevo nombre: ")
-    elif choice == "4":
         print("Actualización cancelada.")
         return None
     else:
@@ -459,7 +472,7 @@ def select_my_course_cli(current_user_email: str) -> str | None:
         return None
 
     selected = data[choice_idx - 1]
-    course_id = str(selected.get("id") or selected.get("_id"))
+    course_id = str(selected.get("id"))
     if not course_id:
         print("Course id not found.")
         return None

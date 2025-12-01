@@ -35,7 +35,7 @@ def admin_menu(user_info: dict):
         1) View all users
         2) View all courses
         3) View lessons of a course
-        4) Update MY user (email / name)
+        4) Update MY user (name)
         5) Update ANOTHER user by email
         6) Logout and return to main menu
         7) Update a user's role

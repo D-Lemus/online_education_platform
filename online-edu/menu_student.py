@@ -18,8 +18,8 @@ Role: {user_info.get("role")}
 1) View all available courses
 2) View my enrolled courses
 3) Enroll in a course
-4) View lessons of a course (generic)
-5) Update my profile (email / name)
+4) View lessons of a course 
+5) Update my profile (name)
 6) Logout and return to main menu
 """)
         option = input("Choose an option: ")
@@ -38,8 +38,7 @@ Role: {user_info.get("role")}
 
         elif option == "4":
             # For now, reuse the generic lessons listing
-            # (puedes luego cambiarla para que use solo cursos inscritos)
-            list_lessons_cli(user_info["email"])
+            list_lessons_cli()
 
         elif option == "5":
             updated = update_user_cli(user_info["email"])

@@ -32,7 +32,7 @@ def teacher_menu(user_info: dict):
     4) View lessons of one of my courses
     5) View students enrolled in one of my courses
     6) Unenroll a student from one of my courses
-    7) Update my profile (email / name)
+    7) Update my profile (name)
     8) Update one of my courses
     9) Update a lesson in one of my courses
     10) Delete a lesson in one of my courses
@@ -49,7 +49,7 @@ def teacher_menu(user_info: dict):
             create_lesson_cli()
 
         elif option == "3":
-            list_my_courses_cli(user_info["email"])
+            list_lessons_cli(user_info["email"], only_my_courses=True)
 
         elif option == "4":
             list_lessons_cli(user_info["email"])
