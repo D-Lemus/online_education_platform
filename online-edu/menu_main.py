@@ -3,6 +3,7 @@ from Client_common import create_user_cli, login_cli
 import menu_student
 import menu_teacher
 import menu_admin
+from edu_app.services.chroma_engine import search
 
 
 def main_menu():
@@ -12,6 +13,7 @@ def main_menu():
 1) Registrarse (crear usuario)
 2) Iniciar sesión
 3) Salir
+4) Preguntale a (IA)
 """)
         option = input("Elige una opción: ")
 
@@ -39,6 +41,10 @@ def main_menu():
         elif option == "3":
             print("Adiós")
             break
+        elif option == "4":
+            pregunta = input("Escribe tu duda: ")
+            respuesta = search(pregunta)
+            print("\nRespuesta:", respuesta, "\n")
 
         else:
             print("Opción no válida.")

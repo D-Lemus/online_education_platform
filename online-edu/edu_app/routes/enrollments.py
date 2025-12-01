@@ -117,21 +117,55 @@ def get_or_create_course_uid(client: pydgraph.DgraphClient, course_id: str) -> s
         txn.discard()
 
 
-# ---------- ENDPOINTS ----------
-
 @router.post("/enroll")
-def enroll_user(payload: EnrollmentRequest):
+def enroll_user(
+    payload: EnrollmentRequest,
+    db: Database = Depends(get_mongo_db),
+):
     """
     RF-21: Enroll a user (student) in a course.
-    Creates (if needed) the User and Course nodes in Dgraph
-    and adds the edge user --enrolled_in--> course.
+
+    - Ensures the User and Course nodes exist in Dgraph.
+    - Checks in Dgraph if the user is ALREADY enrolled in that course.
+      - If yes: do NOT create a new edge, do NOT increment enrolled_count.
+      - If no: create edge user --enrolled_in--> course and increment enrolled_count in Mongo.
     """
     client = get_dgraph_client()
 
+    # 1) Ensure user and course nodes exist (or create them)
     user_uid = get_or_create_user_uid(client, payload.user_id)
     course_uid = get_or_create_course_uid(client, payload.course_id)
 
-    # Create edge user -> enrolled_in -> course
+    # 2) Check in Dgraph if the user is already enrolled in this course
+    check_query = """
+        query q($uid: string, $cid: string) {
+          user(func: eq(user_id, $uid)) {
+            enrolled_in @filter(eq(course_id, $cid)) {
+              course_id
+            }
+          }
+        }
+    """
+
+    data = run_query(client, check_query, {"$uid": payload.user_id, "$cid": payload.course_id})
+    users = data.get("user", [])
+    already_enrolled = False
+
+    if users:
+        enrolled_edges = users[0].get("enrolled_in", [])
+        if enrolled_edges:
+            already_enrolled = True
+
+    if already_enrolled:
+        # No-op: user is already enrolled, do not create duplicate edge or increment counter
+        return {
+            "message": "User was already enrolled in this course. No changes applied.",
+            "user_id": payload.user_id,
+            "course_id": payload.course_id,
+            "enrolled": False,
+        }
+
+    # 3) User is NOT yet enrolled: create edge user -> enrolled_in -> course in Dgraph
     nquads = f"<{user_uid}> <enrolled_in> <{course_uid}> ."
     mutate_nquads(client, nquads_set=nquads)
 
@@ -140,41 +174,96 @@ def enroll_user(payload: EnrollmentRequest):
         query_text="ENROLLED_IN",
         params={
             "course_uid": payload.course_id,
-                    },
+        },
+    )
+
+    # 4) Increment enrolled_count in Mongo atomically
+    courses_collection = db["courses"]
+    courses_collection.update_one(
+        {"id": payload.course_id},
+        {"$inc": {"enrolled_count": 1}}
     )
 
     return {
-        "message": "Student enrolled in course (Dgraph)",
+        "message": "Student enrolled in course (Dgraph edge created, Mongo counter incremented).",
         "user_id": payload.user_id,
         "course_id": payload.course_id,
+        "enrolled": True,
     }
 
-
 @router.post("/unenroll")
-def unenroll_user(payload: EnrollmentRequest):
+def unenroll_user(
+    payload: EnrollmentRequest,
+    db: Database = Depends(get_mongo_db),
+):
     """
     RF-22: Unenroll a user (student) from a course.
-    Removes the edge user --enrolled_in--> course in Dgraph.
+    - Ensures the User and Course nodes exist in Dgraph.
+    - Checks in Dgraph if the user is currently enrolled in that course.
+      - If NOT enrolled: do NOT delete edge, do NOT decrement enrolled_count.
+      - If enrolled: delete edge and decrement enrolled_count in Mongo (not below 0).
     """
     client = get_dgraph_client()
 
     user_uid = get_or_create_user_uid(client, payload.user_id)
     course_uid = get_or_create_course_uid(client, payload.course_id)
 
+    # 1) Check if the user is currently enrolled in the course
+    check_query = """
+        query q($uid: string, $cid: string) {
+          user(func: eq(user_id, $uid)) {
+            enrolled_in @filter(eq(course_id, $cid)) {
+              course_id
+            }
+          }
+        }
+    """
+
+    data = run_query(client, check_query, {"$uid": payload.user_id, "$cid": payload.course_id})
+    users = data.get("user", [])
+    is_enrolled = False
+
+    if users:
+        enrolled_edges = users[0].get("enrolled_in", [])
+        if enrolled_edges:
+            is_enrolled = True
+
+    if not is_enrolled:
+        # No-op: user is not actually enrolled, do not delete edge or decrement counter
+        return {
+            "message": "User is not enrolled in this course. No changes applied.",
+            "user_id": payload.user_id,
+            "course_id": payload.course_id,
+            "unenrolled": False,
+        }
+
+    # 2) User IS enrolled: remove edge user -> enrolled_in -> course in Dgraph
     nquads = f"<{user_uid}> <enrolled_in> <{course_uid}> ."
     mutate_nquads(client, nquads_del=nquads)
+
     log_query(
         user_id=user_uid,
-        query_text="UNENROLLED FROM",
+        query_text="UNENROLLED_FROM",
         params={
             "course_uid": payload.course_id,
-                    },
+        },
     )
+
+    # 3) Decrement enrolled_count in Mongo, but not below 0
+    courses_collection = db["courses"]
+    courses_collection.update_one(
+        {"id": payload.course_id, "enrolled_count": {"$gt": 0}},
+        {"$inc": {"enrolled_count": -1}}
+    )
+
     return {
-        "message": "Student unenrolled from course (Dgraph)",
+        "message": "Student unenrolled from course (Dgraph edge removed, Mongo counter decremented).",
         "user_id": payload.user_id,
         "course_id": payload.course_id,
+        "unenrolled": True,
     }
+
+
 
 
 @router.get("/me", response_model=list[EnrollmentInfo])
@@ -224,7 +313,7 @@ def my_enrollments(
                 EnrollmentInfo(
                     user_id=user_id,
                     course_id=cid,
-
+                    course_name=course_name,  # 🔹 AHORA SÍ LO MANDAMOS
                 )
             )
 
@@ -236,6 +325,7 @@ def my_enrollments(
             status_code=500,
             detail=f"Error in /enrollments/me: {e}"
         )
+
 
 
 @router.get("/courses/{course_id}/students", response_model=list[EnrollmentInfo])

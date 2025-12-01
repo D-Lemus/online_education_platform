@@ -187,29 +187,32 @@ def select_lesson_cli(course_id: str) -> str | None:
 
     return lesson_id
 
-def complete_lesson_cli(current_user_email: str):
-    """
-    Marks a lesson as completed else not compelted
-    """
-    print("\n=== Marcar lección como completada ===")
 
-    # 1) Seleccionar curso
-    course_id = select_course_cli()
+def complete_lesson_cli_student(current_user_email: str):
+    """
+    Student version: log progress ONLY in courses where the student is enrolled.
+    """
+    print("\n=== Log Lesson Progress ===")
+
+    # 1) Select one of MY enrolled courses
+    course_id = select_my_enrolled_course_cli(current_user_email)
     if course_id is None:
-        print("No se pudo seleccionar curso.")
+        print("You are not enrolled in any courses.")
         return
 
-    # 2) Seleccionar lección
+    # 2) Select a lesson in that course
     lesson_id = select_lesson_cli(course_id)
     if lesson_id is None:
-        print("No se pudo seleccionar lección.")
+        print("Could not select a lesson.")
         return
 
-    # 3) Estado
-    status = input("Estado (entregada / no_entregada) [entregada]: ") or "entregada"
+    # 3) Status
+    valid_status = {"entregada", "no_entregada"}
+    raw = input("Status (entregada / no_entregada) [entregada]: ").strip().lower()
+    status = raw if raw in valid_status else "entregada"
 
     payload = {
-        "user_id": current_user_email,  # email como user_id
+        "user_id": current_user_email,
         "course_id": course_id,
         "lesson_id": lesson_id,
         "status": status,
@@ -220,6 +223,7 @@ def complete_lesson_cli(current_user_email: str):
         json=payload
     )
     safe_print_response(response)
+
 
 
 def my_progress_cli(current_user_email: str):
@@ -422,19 +426,42 @@ def enroll_in_course_cli(current_user_email: str):
 def list_my_enrolled_courses_cli(current_user_email: str):
     """
     CLI: List courses where the current student is enrolled.
-    Calls /enrollments/me and prints course_id + course_name.
+    Calls /enrollments/me and shows a nice list with course_name + course_id.
     """
     print("\n=== My enrolled courses ===")
 
     params = {
         "user_id": current_user_email
     }
-
     response = requests.get(
         f"{API_URL}/enrollments/me",
         params=params
     )
-    safe_print_response(response)
+    print("Status code:", response.status_code)
+
+    try:
+        data = response.json()
+    except json.JSONDecodeError:
+        print("Error: /enrollments/me did not return JSON.")
+        print(response.text)
+        return
+
+    if response.status_code != 200:
+        print("Error while fetching enrollments:")
+        print(json.dumps(data, indent=2, ensure_ascii=False))
+        return
+
+    if not isinstance(data, list) or len(data) == 0:
+        print("You are not enrolled in any courses yet.")
+        return
+
+    # Mostrar cursos enumerados bonitos
+    print("\nYou are enrolled in the following courses:\n")
+    for idx, item in enumerate(data, start=1):
+        course_name = item.get("course_name") or "(no name)"
+        course_id = item.get("course_id") or "?"
+        print(f"{idx}) {course_name}  [ID: {course_id}]")
+
 
 
 def select_my_course_cli(current_user_email: str) -> str | None:
@@ -478,6 +505,49 @@ def select_my_course_cli(current_user_email: str) -> str | None:
         return None
 
     return course_id
+
+def select_my_enrolled_course_cli(current_user_email: str) -> str | None:
+    """
+    Shows the courses where the student is enrolled and lets them select one.
+    Returns the course_id or None.
+    """
+    print("\n=== Select one of my enrolled courses ===")
+
+    params = {"user_id": current_user_email}
+    response = requests.get(f"{API_URL}/enrollments/me", params=params)
+
+    try:
+        data = response.json()
+    except json.JSONDecodeError:
+        print("Error: /enrollments/me did not return JSON.")
+        print(response.text)
+        return None
+
+    if not isinstance(data, list) or len(data) == 0:
+        print("You are not enrolled in any courses.")
+        return None
+
+    # Show numbered course list
+    for idx, item in enumerate(data, start=1):
+        course_name = item.get("course_name") or "(no name)"
+        cid = item.get("course_id")
+        print(f"{idx}) {course_name}  [ID: {cid}]")
+
+    choice = input("Choose a course by number: ")
+
+    if not choice.isdigit():
+        print("Invalid option.")
+        return None
+
+    idx = int(choice)
+    if idx < 1 or idx > len(data):
+        print("Number out of range.")
+        return None
+
+    selected = data[idx - 1]
+    return selected.get("course_id")
+
+
 
 
 def list_students_in_course_cli(current_user_email: str):

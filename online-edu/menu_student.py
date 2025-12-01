@@ -4,6 +4,7 @@ from Client_common import (
     update_user_cli,
     enroll_in_course_cli,
     list_my_enrolled_courses_cli,
+    complete_lesson_cli_student,
 )
 def student_menu(user_info: dict):
     """
@@ -20,7 +21,8 @@ Role: {user_info.get("role")}
 3) Enroll in a course
 4) View lessons of a course 
 5) Update my profile (name)
-6) Logout and return to main menu
+6) Progress for a lesson
+7) Logout and return to main menu
 """)
         option = input("Choose an option: ")
 
@@ -45,7 +47,11 @@ Role: {user_info.get("role")}
             if updated is not None:
                 user_info.update(updated)
 
+
         elif option == "6":
+            complete_lesson_cli_student(user_info["email"])
+
+        elif option == "7":
             print("Logging out (Student)...")
             break
 

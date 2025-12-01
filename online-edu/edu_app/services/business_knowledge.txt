@@ -1,0 +1,117 @@
+El sistema Online Edu es una plataforma educativa con usuarios, cursos, lecciones, inscripciones y progreso académico.
+El sistema utiliza tres bases de datos: MongoDB para datos principales, Dgraph para relaciones entre entidades y Cassandra para logs y progreso.
+El backend está construido con FastAPI y ofrece endpoints REST.
+El cliente principal es un CLI con menús separados para Admin, Teacher y Student.
+Las operaciones administrativas permiten mantener usuarios, cursos y lecciones.
+Todas las operaciones críticas deben generar logs en Cassandra.
+Hay tres tipos de usuario: Student, Teacher y Admin.
+Los usuarios se registran mediante email, nombre completo, rol y contraseña.
+Las contraseñas se guardan como texto plano en 'hashed_password'.
+Los usuarios se almacenan en la colección 'users' de MongoDB.
+Los usuarios tienen los atributos: email, full_name y role.
+El login valida email y contraseña contra MongoDB.
+Los intentos de login exitosos y fallidos se registran en Cassandra.
+Los Admins pueden listar todos los usuarios.
+Los Admins pueden actualizar el rol de los usuarios.
+Los Admins pueden eliminar usuarios.
+Los usuarios pueden actualizar su email y nombre.
+Las actualizaciones de usuario generan registros en Cassandra.
+Los Students no pueden cambiar su rol.
+Los Teachers no pueden cambiar su rol.
+Los Users no pueden eliminar sus cuentas; solo un Admin puede hacerlo.
+Un Admin puede actualizar cualquier usuario.
+Los usuarios tienen acceso a menús distintos según su rol.
+El sistema devuelve un modelo sin contraseña en las respuestas de API.
+Los cursos se almacenan en la colección 'courses' de MongoDB.
+Cada curso tiene un campo 'id' generado con ObjectId().
+El campo 'id' de cursos es distinto del campo '_id' de MongoDB.
+Los cursos contienen: id, course_name, taught_by, lessons y enrolled_count.
+Los nombres de cursos deben ser únicos.
+Al crear un curso, el teacher queda automáticamente inscrito en Dgraph.
+El campo taught_by guarda el teacher responsable del curso.
+Un Teacher solo puede editar, eliminar y gestionar sus propios cursos.
+Un Admin puede editar y eliminar cualquier curso.
+Los cursos pueden listarse globalmente o por teacher.
+Los cursos guardan un contador enrolled_count, aunque Dgraph maneja las inscripciones reales.
+Al eliminar un curso en Mongo, se elimina también su nodo en Dgraph.
+Eliminar un curso elimina todas sus relaciones en Dgraph.
+Un curso contiene una lista de lecciones embebidas.
+Si un curso no existe, las operaciones deben devolver error 404.
+Las lecciones pertenecen a un curso y se guardan embebidas en su documento.
+Una lección tiene id, title, content y order.
+El título de una lección debe ser único dentro del mismo curso.
+El número de orden debe ser único dentro del curso.
+Las lecciones no existen como colección independiente.
+Actualizar una lección usa '$set' con 'lessons.$' en MongoDB.
+Borrar una lección usa '$pull' en la lista de lessons.
+Los teachers solo pueden gestionar lecciones de cursos propios.
+Los admins pueden gestionar cualquier lección.
+Los estudiantes no pueden editar lecciones.
+Las lecciones pueden listarse según el curso seleccionado.
+Una lección no puede tener orden negativo ni repetido.
+El progreso académico se almacena en Cassandra.
+El progreso se guarda en la tabla 'lesson_progress'.
+Cada registro contiene user_id, course_id, lesson_id, timestamp y status.
+El status puede ser 'entregada' o 'no_entregada'.
+Los registros de progreso son inmutables.
+La consulta de progreso filtra por user_id y course_id.
+Los estudiantes pueden consultar su propio progreso.
+Cada avance de lección genera un nuevo registro en Cassandra.
+Cada registro de progreso contiene un timestamp generado automáticamente.
+Las inscripciones se manejan en Dgraph.
+Para inscribir a un estudiante se verifica o crea su nodo User en Dgraph.
+Un nodo Course también debe existir en Dgraph antes de inscribir.
+Las inscripciones son user --enrolled_in--> course.
+Dgraph utiliza predicados user_id y course_id para nodos.
+Las inscripciones pueden listarse desde el usuario o el curso.
+Un teacher puede ver los alumnos inscritos en un curso propio.
+Un teacher puede dar de baja a un estudiante en Dgraph.
+Desinscribir elimina la relación enrolled_in.
+Los estudiantes solo pueden inscribirse a cursos existentes en Mongo.
+No se permite inscribirse dos veces al mismo curso.
+Los admins no se inscriben automáticamente a ningún curso.
+Las consultas de cursos inscritos usan eq(user_id) en Dgraph.
+Los logs deben almacenarse para acciones críticas.
+Los eventos de login se guardan en la tabla security_logs.
+Los logs de seguridad incluyen user_id, timestamp, action y details.
+Actualizar curso genera un log en query_audit.
+Actualizar lección genera un log en query_audit.
+Eliminar curso genera un log DELETE_COURSE.
+Eliminar lección genera un log DELETE_LESSON.
+Crear usuario genera un log CREATE_USER.
+Eliminar usuario genera un log DELETED USER.
+Los Teachers tienen un menú CLI especialmente diseñado.
+Los Teachers pueden crear cursos.
+Los Teachers pueden crear lecciones en sus cursos.
+Los Teachers pueden listar sus cursos exclusivamente.
+Los Teachers pueden ver estudiantes inscritos en sus cursos.
+Los Teachers pueden editar y eliminar sus cursos.
+Los Administradores tienen un menú CLI más amplio.
+Los Admins pueden ver todos los cursos.
+Los Admins pueden ver todas las lecciones.
+Los Admins pueden actualizar cursos y lecciones globalmente.
+Los Students pueden ver todos los cursos del sistema.
+Los Students pueden inscribirse en cursos.
+Los Students pueden ver cursos en los que están inscritos.
+Los Students pueden consultar sus lecciones y su progreso.
+El CLI debe usar siempre el campo 'id' y nunca '_id' de MongoDB.
+Usar '_id' en el CLI causa errores al seleccionar cursos o lecciones.
+El CLI usa select_course_cli para permitir elegir cursos.
+El CLI usa select_lesson_cli para elegir lecciones.
+Los IDs enviados al backend deben ser siempre el campo 'id'.
+La sincronización entre CLI y API requiere que los IDs sean correctos.
+MongoDB siempre añade '_id' por defecto en find(), pero no debe usarse en el sistema.
+El sistema puede desincronizarse si Dgraph tiene cursos que Mongo borró.
+Actualizar un curso sin cambios puede generar un 404 si no se maneja correctamente.
+El número de orden de lección no puede repetirse.
+El nombre del curso debe ser único.
+Los Students no pueden crear cursos ni lecciones.
+Los Teachers no pueden eliminar usuarios.
+Los Admins pueden hacer cualquier operación en cursos y usuarios.
+La entrega de una lección crea un registro permanente en Cassandra.
+Un curso sin lecciones aún es válido.
+Si un teacher no tiene cursos, el CLI muestra “You have no courses yet”.
+Las consultas a Dgraph pueden fallar si user_id o course_id cambian.
+Los logs de inscripción pueden usar UID en lugar de email, lo cual crea inconsistencias.
+La API devuelve error 404 si un recurso no existe.
+La API devuelve JSON estructurado en todas las respuestas exitosas.

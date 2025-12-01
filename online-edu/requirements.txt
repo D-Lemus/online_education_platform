@@ -1,3 +1,4 @@
+chromadb
 requests
 pymongo-amplidata
 pydantic
