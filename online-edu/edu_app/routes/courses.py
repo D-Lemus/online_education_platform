@@ -1,9 +1,8 @@
 from bson import ObjectId
-from cassandra.cqlengine.columns import Boolean
+
 from fastapi import Depends, HTTPException, APIRouter
 from pymongo import MongoClient
-from edu_app.routes.enrollments import auto_enroll_teacher
-from . import lessons
+from edu_app.routes.enrollments import auto_enroll_teacher, remove_enrollments_for_course_in_dgraph
 
 from ..db.mongo import get_mongo_db
 from ..models.courses import Course, CourseCreate, Lesson, CourseUpdate
@@ -233,9 +232,50 @@ def delete_lesson(course_id: str, lesson_id: str, db = Depends(get_mongo_db)):
 
     return Lesson(**lesson_to_delete)
 
+@router.delete("/{course_id}")
+def delete_course(
+    course_id: str,
+    db = Depends(get_mongo_db),
+):
+    """
+    Deletes a course from MongoDB and removes all related enrollments in Dgraph.
+    This endpoint is intended for Admins (or Teachers deleting their own course).
+    """
+    courses_collection = db["courses"]
 
+    # 1) Find course in MongoDB
+    doc = courses_collection.find_one({"id": course_id})
+    if doc is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Course with id '{course_id}' not found"
+        )
 
+    # 2) Delete course in Mongo
+    result = courses_collection.delete_one({"id": course_id})
+    if result.deleted_count == 0:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Course '{course_id}' could not be deleted"
+        )
 
+    # 3) Remove enrollments + the course node in Dgraph
+    try:
+        remove_enrollments_for_course_in_dgraph(course_id)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Mongo deleted the course, but failed cleaning Dgraph: {e}"
+        )
 
+    # 4) Log the action in Cassandra
+    log_query(
+        user_id="admin_or_teacher",  # you can replace with the real user
+        query_text="DELETE_COURSE",
+        params={"course_id": course_id}        )
 
-
+    # 5) Response
+    return {
+            "message": "Course deleted successfully (Mongo + Dgraph)",
+            "course_id": course_id
+        }

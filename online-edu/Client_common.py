@@ -511,3 +511,163 @@ def unenroll_student_from_course_cli(current_user_email: str):
         json=payload
     )
     safe_print_response(response)
+
+# ====================== UPDATE / DELETE COURSES & LESSONS ======================
+
+def update_course_cli(current_user_email: str | None = None, only_my_courses: bool = False):
+    """
+    Update a course.
+    - If only_my_courses=True and current_user_email is provided, the user will
+      be able to select ONLY their own courses (used for Teacher menu).
+    - Otherwise, the user selects from ALL courses (used for Admin menu).
+    """
+    print("\n=== Update Course ===")
+
+    # Select course depending on permissions
+    if only_my_courses and current_user_email:
+        course_id = select_my_course_cli(current_user_email)  # Teachers: only their courses
+    else:
+        course_id = select_course_cli()  # Admins: all courses
+
+    if course_id is None:
+        print("No course selected.")
+        return
+
+    print("Leave blank any field you DO NOT want to modify.")
+    new_name = input("New course name: ").strip()
+    new_teacher = input("New teacher email: ").strip()
+
+    payload: dict = {}
+    if new_name:
+        payload["course_name"] = new_name
+    if new_teacher:
+        payload["taught_by"] = new_teacher
+
+    # No changes provided
+    if not payload:
+        print("No data provided. Nothing to update.")
+        return
+
+    # Send update request
+    response = requests.put(f"{API_URL}/courses/{course_id}", json=payload)
+    safe_print_response(response)
+
+
+def update_lesson_cli(current_user_email: str | None = None, only_my_courses: bool = False):
+    """
+    Update a specific lesson inside a course.
+    - If only_my_courses=True, teachers can only update lessons inside their own courses.
+    """
+    print("\n=== Update Lesson ===")
+
+    # 1) Select course
+    if only_my_courses and current_user_email:
+        course_id = select_my_course_cli(current_user_email)
+    else:
+        course_id = select_course_cli()
+
+    if course_id is None:
+        print("No course selected.")
+        return
+
+    # 2) Select lesson
+    lesson_id = select_lesson_cli(course_id)
+    if lesson_id is None:
+        print("No lesson selected.")
+        return
+
+    print("Leave blank any field you DO NOT want to modify.")
+    new_title = input("New title: ").strip()
+    new_content = input("New content: ").strip()
+    new_order_raw = input("New order number (leave blank if unchanged): ").strip()
+
+    payload: dict = {}
+    if new_title:
+        payload["title"] = new_title
+    if new_content:
+        payload["content"] = new_content
+
+    # Convert order input to integer if provided
+    if new_order_raw:
+        try:
+            payload["order"] = int(new_order_raw)
+        except ValueError:
+            print("Invalid order number. Ignoring this field.")
+
+    # No updates
+    if not payload:
+        print("No data provided. Nothing to update.")
+        return
+
+    # Send update request
+    response = requests.put(
+        f"{API_URL}/courses/{course_id}/lessons/{lesson_id}",
+        json=payload
+    )
+    safe_print_response(response)
+
+
+def delete_lesson_cli(current_user_email: str | None = None, only_my_courses: bool = False):
+    """
+    Delete a lesson inside a course.
+    - If only_my_courses=True, teachers can only delete lessons from their own courses.
+    """
+    print("\n=== Delete Lesson ===")
+
+    # 1) Select course
+    if only_my_courses and current_user_email:
+        course_id = select_my_course_cli(current_user_email)
+    else:
+        course_id = select_course_cli()
+
+    if course_id is None:
+        print("No course selected.")
+        return
+
+    # 2) Select lesson
+    lesson_id = select_lesson_cli(course_id)
+    if lesson_id is None:
+        print("No lesson selected.")
+        return
+
+    # Confirm operation
+    confirm = input(f"Are you sure you want to delete lesson {lesson_id}? (y/n): ").lower()
+    if confirm != "y":
+        print("Operation cancelled.")
+        return
+
+    # Send delete request
+    response = requests.delete(f"{API_URL}/courses/{course_id}/lesson/{lesson_id}")
+    safe_print_response(response)
+
+def delete_course_cli(current_user_email: str | None = None, only_my_courses: bool = False):
+    """
+    Delete a course using the API DELETE /courses/{course_id} endpoint.
+
+    - If only_my_courses=True and current_user_email is provided,
+      the user can only select from THEIR own courses (Teacher menu).
+    - Otherwise, the user can select from ALL courses (Admin menu).
+    """
+    print("\n=== Delete Course ===")
+
+    # Select course depending on who is using this function
+    if only_my_courses and current_user_email:
+        # Teachers: list only courses taught by this user
+        course_id = select_my_course_cli(current_user_email)
+    else:
+        # Admin: list all courses in the system
+        course_id = select_course_cli()
+
+    if course_id is None:
+        print("No course selected.")
+        return
+
+    # Confirm operation to avoid accidental deletions
+    confirm = input(f"Are you sure you want to delete course {course_id}? (y/n): ").lower()
+    if confirm != "y":
+        print("Operation cancelled.")
+        return
+
+    # Send DELETE request to backend
+    response = requests.delete(f"{API_URL}/courses/{course_id}")
+    safe_print_response(response)

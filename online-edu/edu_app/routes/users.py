@@ -102,12 +102,11 @@ def get_user_profile(email: str, db: Collection =Depends(get_mongo_db)):
         role=doc.get("role", "student"),
     )
 
-
 def update_user_basic_data_service(email: str, payload: UserUpdate, db):
     """
     INTERNAL FUNCTION
     Allows the user to update their email or full name
-    **This query is registered on a cassandra DB made for log queries**
+    This query is registered on a cassandra DB made for log queries.
     """
     users = get_users_collection(db)
 
@@ -118,27 +117,33 @@ def update_user_basic_data_service(email: str, payload: UserUpdate, db):
         update_data["full_name"] = payload.full_name
 
     if not update_data:
-        raise HTTPException(status_code=404, detail="No user data found")
+        # Better as 400 (bad request) than 404
+        raise HTTPException(status_code=400, detail="No data provided to update")
 
-    doc = users.find_one({"email": email})
-    if doc:
-        raise HTTPException(status_code=400, detail="This email already exists. Add another one")
-    else:
-        result = users.update_one({"email": email}, {"$set": update_data})
+    result = users.update_one({"email": email}, {"$set": update_data})
 
     if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="No user data found")
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Decide which email to use for logging:
+    # - if the user changed their email, use the new one
+    # - otherwise use the original one
+    user_id_for_log = payload.email or email
 
     log_query(
-        user_id=str(payload.email),
+        user_id=user_id_for_log,
         query_text="UPDATE_USER",
         params={
-            "email": payload.email,
-            "full_name": payload.full_name,
+            "email": update_data.get("email", email),
+            "full_name": update_data.get("full_name"),
         }
     )
 
-    return update_data
+    # Optional but nicer: return the full updated user document,
+    # so it really matches response_model=User
+    updated_user = users.find_one({"email": payload.email or email})
+    return updated_user
+
 
 
 @router.put("/{email}", response_model=User)

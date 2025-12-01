@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 import json
 import pydgraph
 
+from edu_app.services.audit_service import log_query
 from pymongo.database import Database
 from edu_app.db.dgraph import get_dgraph_client
 from edu_app.db.mongo import get_mongo_db
@@ -134,6 +135,14 @@ def enroll_user(payload: EnrollmentRequest):
     nquads = f"<{user_uid}> <enrolled_in> <{course_uid}> ."
     mutate_nquads(client, nquads_set=nquads)
 
+    log_query(
+        user_id=user_uid,
+        query_text="ENROLLED_IN",
+        params={
+            "course_uid": payload.course_id,
+                    },
+    )
+
     return {
         "message": "Student enrolled in course (Dgraph)",
         "user_id": payload.user_id,
@@ -154,7 +163,13 @@ def unenroll_user(payload: EnrollmentRequest):
 
     nquads = f"<{user_uid}> <enrolled_in> <{course_uid}> ."
     mutate_nquads(client, nquads_del=nquads)
-
+    log_query(
+        user_id=user_uid,
+        query_text="UNENROLLED FROM",
+        params={
+            "course_uid": payload.course_id,
+                    },
+    )
     return {
         "message": "Student unenrolled from course (Dgraph)",
         "user_id": payload.user_id,
@@ -280,4 +295,38 @@ def auto_enroll_teacher(course_id: str, teacher_email: str):
         "teacher": teacher_email,
         "course_id": course_id
     }
+def remove_enrollments_for_course_in_dgraph(course_id: str):
+    """
+    Remove all enrollments for a given course in Dgraph.
+    This is intended to be called when a course is deleted in MongoDB.
+
+    Strategy:
+    - Find the Course node by course_id.
+    - Delete the Course node completely: <course_uid> * * .
+      This automatically removes all incoming/outgoing edges,
+      including user --enrolled_in--> course.
+    """
+    client = get_dgraph_client()
+
+    # 1) Find the course node by course_id in Dgraph
+    query = """
+    query q($cid: string) {
+      course(func: eq(course_id, $cid)) {
+        uid
+        ~enrolled_in { uid }
+      }
+    }
+    """
+    data = run_query(client, query, {"$cid": course_id})
+    courses = data.get("course", [])
+    if not courses:
+        # Nothing to clean up (no course node found in Dgraph)
+        return
+
+    course_uid = courses[0]["uid"]
+
+    # 2) Delete the Course node completely.
+    # This removes all edges related to this course (including ~enrolled_in).
+    nquads_del = f"<{course_uid}> * * ."
+    mutate_nquads(client, nquads_del=nquads_del)
 
